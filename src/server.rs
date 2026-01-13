@@ -165,14 +165,24 @@ impl<S: FgpService> FgpServer<S> {
             }
         };
 
+        // Strip service prefix if present (e.g., "github.repos" -> "repos")
+        let method = request.method.as_str();
+        let service_prefix = format!("{}.", self.service.name());
+        let action = if method.starts_with(&service_prefix) {
+            &method[service_prefix.len()..]
+        } else {
+            method
+        };
+
         debug!(
             method = %request.method,
+            action = %action,
             id = %request.id,
             "Handling request"
         );
 
         // Dispatch to service or handle built-in methods
-        let response = match request.method.as_str() {
+        let response = match action {
             "health" => self.handle_health(&request.id, start),
             "stop" => {
                 self.stop();
@@ -183,7 +193,7 @@ impl<S: FgpService> FgpServer<S> {
                 )
             }
             "methods" => self.handle_methods(&request.id, start),
-            _ => match self.service.dispatch(&request.method, request.params) {
+            _ => match self.service.dispatch(action, request.params) {
                 Ok(result) => Response::success(
                     &request.id,
                     result,
