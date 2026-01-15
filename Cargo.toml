@@ -22,6 +22,7 @@ thiserror = "2"
 
 # Logging
 tracing = "0.1"
+chrono = "0.4"
 
 # Async (optional, for client)
 tokio = { version = "1", features = ["rt", "net", "io-util", "time"], optional = true }

@@ -136,6 +136,41 @@ fn expand_path(path: &Path) -> Result<PathBuf> {
     Ok(PathBuf::from(expanded.as_ref()))
 }
 
+/// Validate that an entrypoint is safe to execute.
+///
+/// Checks:
+/// - File has executable permission
+/// - File is owned by current user or root (not world-writable)
+fn validate_entrypoint(path: &Path) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let metadata = fs::metadata(path)
+        .with_context(|| format!("Cannot read entrypoint metadata: {}", path.display()))?;
+
+    let permissions = metadata.permissions();
+    let mode = permissions.mode();
+
+    // Check if file is executable (user, group, or other)
+    if mode & 0o111 == 0 {
+        bail!(
+            "Entrypoint is not executable: {}. Run: chmod +x {}",
+            path.display(),
+            path.display()
+        );
+    }
+
+    // Security check: warn if world-writable (but don't block)
+    if mode & 0o002 != 0 {
+        tracing::warn!(
+            "Security warning: entrypoint {} is world-writable. Consider: chmod o-w {}",
+            path.display(),
+            path.display()
+        );
+    }
+
+    Ok(())
+}
+
 /// Standard socket path for a service.
 pub fn service_socket_path(service_name: &str) -> PathBuf {
     let base = shellexpand::tilde("~/.fgp/services");
@@ -226,6 +261,9 @@ pub fn start_service_with_timeout(service_name: &str, timeout: Duration) -> Resu
         bail!("Daemon entrypoint not found: {}", entrypoint_path.display());
     }
 
+    // Security: Validate entrypoint is executable
+    validate_entrypoint(&entrypoint_path)?;
+
     tracing::info!("Starting service '{}'...", service_name);
 
     // Start as background process
@@ -264,10 +302,29 @@ pub fn stop_service(service_name: &str) -> Result<()> {
     let socket_path = service_socket_path(service_name);
     let pid_path = service_pid_path(service_name);
 
+    if socket_path.exists() {
+        if let Ok(client) = crate::client::FgpClient::new(&socket_path) {
+            if let Ok(response) = client.stop() {
+                if response.ok {
+                    return Ok(());
+                }
+            }
+        }
+    }
+
     // Check if PID file exists
     if let Some(pid) = read_pid_file(&pid_path) {
         if is_process_running(pid) {
             tracing::info!("Stopping service '{}' (PID: {})...", service_name, pid);
+
+            let expected = read_entrypoint_name(service_name)?;
+            if !pid_matches_process(pid, expected.as_deref()) {
+                bail!(
+                    "Refusing to stop PID {}: process does not match expected entrypoint '{}'",
+                    pid,
+                    expected.unwrap_or_else(|| "unknown".to_string())
+                );
+            }
 
             // Send SIGTERM
             unsafe {
@@ -285,6 +342,47 @@ pub fn stop_service(service_name: &str) -> Result<()> {
 
     tracing::info!("Service '{}' stopped", service_name);
     Ok(())
+}
+
+fn read_entrypoint_name(service_name: &str) -> Result<Option<String>> {
+    let manifest_path = fgp_services_dir().join(service_name).join("manifest.json");
+    if !manifest_path.exists() {
+        return Ok(None);
+    }
+
+    let manifest_content = fs::read_to_string(&manifest_path)
+        .context("Failed to read manifest.json")?;
+    let manifest: serde_json::Value = serde_json::from_str(&manifest_content)
+        .context("Failed to parse manifest.json")?;
+
+    let entrypoint = manifest["daemon"]["entrypoint"]
+        .as_str()
+        .map(|s| s.to_string());
+
+    Ok(entrypoint.and_then(|p| {
+        Path::new(&p)
+            .file_name()
+            .and_then(|name| name.to_str())
+            .map(|name| name.to_string())
+    }))
+}
+
+fn pid_matches_process(pid: u32, expected_name: Option<&str>) -> bool {
+    let Some(expected_name) = expected_name else {
+        return false;
+    };
+
+    let output = Command::new("ps")
+        .args(["-p", &pid.to_string(), "-o", "comm="])
+        .output();
+
+    match output {
+        Ok(output) if output.status.success() => {
+            let command = String::from_utf8_lossy(&output.stdout);
+            command.trim().contains(expected_name)
+        }
+        _ => false,
+    }
 }
 
 /// Check if a service is currently running.

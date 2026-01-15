@@ -224,39 +224,39 @@ fn expand_path(path: &Path) -> Result<PathBuf> {
 
 /// Convenience function to call a method on a daemon.
 ///
-/// This uses auto-start by default - if the daemon is not running, it will
-/// be started automatically.
+/// This does NOT auto-start the daemon. If the daemon is not running, the call
+/// will fail. Use `call_auto_start()` if you want automatic daemon startup.
 ///
 /// # Example
 ///
 /// ```rust,no_run
 /// use fgp_daemon::client::call;
 ///
-/// // Auto-starts gmail daemon if not running
+/// // Fails if gmail daemon is not running
 /// let response = call("gmail", "gmail.list", serde_json::json!({"limit": 5}))?;
 /// # Ok::<(), anyhow::Error>(())
 /// ```
 pub fn call(service_name: &str, method: &str, params: serde_json::Value) -> Result<Response> {
-    let client = FgpClient::for_service(service_name)?;
+    let socket_path = crate::lifecycle::service_socket_path(service_name);
+    let client = FgpClient::new(socket_path)?;
     client.call(method, params)
 }
 
-/// Call a method without auto-start.
+/// Call a method with auto-start enabled.
 ///
-/// Fails immediately if the daemon is not running.
+/// If the daemon is not running, it will be started automatically.
 ///
 /// # Example
 ///
 /// ```rust,no_run
-/// use fgp_daemon::client::call_no_auto_start;
+/// use fgp_daemon::client::call_auto_start;
 ///
-/// // Fails if gmail daemon is not running
-/// let response = call_no_auto_start("gmail", "gmail.list", serde_json::json!({}))?;
+/// // Auto-starts gmail daemon if not running
+/// let response = call_auto_start("gmail", "gmail.list", serde_json::json!({"limit": 5}))?;
 /// # Ok::<(), anyhow::Error>(())
 /// ```
-pub fn call_no_auto_start(service_name: &str, method: &str, params: serde_json::Value) -> Result<Response> {
-    let socket_path = crate::lifecycle::service_socket_path(service_name);
-    let client = FgpClient::new(socket_path)?;
+pub fn call_auto_start(service_name: &str, method: &str, params: serde_json::Value) -> Result<Response> {
+    let client = FgpClient::for_service(service_name)?;
     client.call(method, params)
 }
 
