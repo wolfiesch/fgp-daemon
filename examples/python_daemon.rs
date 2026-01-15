@@ -44,11 +44,7 @@ fn main() -> Result<()> {
     // Load the Python module
     let module = fgp_daemon::PythonModule::load(&module_path, "EchoModule")?;
 
-    println!(
-        "Loaded module: {} v{}",
-        module.name(),
-        module.version()
-    );
+    println!("Loaded module: {} v{}", module.name(), module.version());
 
     // Create and run the server
     let socket_path = "~/.fgp/services/echo/daemon.sock";

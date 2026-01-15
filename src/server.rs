@@ -14,7 +14,8 @@ use std::time::Instant;
 use tracing::{debug, error, info, warn};
 
 use crate::protocol::{self, error_codes, Response};
-use crate::service::{FgpService, MethodInfo};
+use crate::schema;
+use crate::service::{FgpService, MethodInfo, ParamInfo};
 
 /// FGP daemon server.
 ///
@@ -245,7 +246,13 @@ impl<S: FgpService + 'static> FgpServer<S> {
             // - "<service>.health" / "<service>.methods" / "<service>.stop" (accepted for compatibility)
             let response = match action {
                 "health" if method == "health" || is_namespaced_for_service => {
-                    Self::handle_health_static(&request.id, start, service, started_at, started_at_iso)
+                    Self::handle_health_static(
+                        &request.id,
+                        start,
+                        service,
+                        started_at,
+                        started_at_iso,
+                    )
                 }
                 "stop" if method == "stop" || is_namespaced_for_service => {
                     running.store(false, Ordering::SeqCst);
@@ -257,6 +264,9 @@ impl<S: FgpService + 'static> FgpServer<S> {
                 }
                 "methods" if method == "methods" || is_namespaced_for_service => {
                     Self::handle_methods_static(&request.id, start, service)
+                }
+                "schema" if method == "schema" || is_namespaced_for_service => {
+                    Self::handle_schema_static(&request.id, start, service, request.params)
                 }
                 _ => {
                     if method.contains('.') && !is_namespaced_for_service {
@@ -328,7 +338,13 @@ impl<S: FgpService + 'static> FgpServer<S> {
     /// Handle the `health` built-in method (instance version).
     #[allow(dead_code)]
     fn handle_health(&self, id: &str, start: Instant) -> Response {
-        Self::handle_health_static(id, start, &self.service, &self.started_at, &self.started_at_iso)
+        Self::handle_health_static(
+            id,
+            start,
+            &self.service,
+            &self.started_at,
+            &self.started_at_iso,
+        )
     }
 
     /// Handle the `health` built-in method (static version).
@@ -380,16 +396,54 @@ impl<S: FgpService + 'static> FgpServer<S> {
                 name: "health".into(),
                 description: "Returns daemon health and status".into(),
                 params: vec![],
+                schema: None,
+                returns: None,
+                examples: vec![],
+                errors: vec![],
+                deprecated: false,
             },
             MethodInfo {
                 name: "stop".into(),
                 description: "Gracefully shuts down the daemon".into(),
                 params: vec![],
+                schema: None,
+                returns: None,
+                examples: vec![],
+                errors: vec![],
+                deprecated: false,
             },
             MethodInfo {
                 name: "methods".into(),
                 description: "Lists available methods".into(),
                 params: vec![],
+                schema: None,
+                returns: None,
+                examples: vec![],
+                errors: vec![],
+                deprecated: false,
+            },
+            MethodInfo {
+                name: "schema".into(),
+                description: "Returns JSON Schema for methods with format conversion support".into(),
+                params: vec![
+                    ParamInfo {
+                        name: "format".into(),
+                        param_type: "string".into(),
+                        required: false,
+                        default: Some(serde_json::json!("json-schema")),
+                    },
+                    ParamInfo {
+                        name: "methods".into(),
+                        param_type: "array".into(),
+                        required: false,
+                        default: None,
+                    },
+                ],
+                schema: None,
+                returns: None,
+                examples: vec![],
+                errors: vec![],
+                deprecated: false,
             },
         ];
 
@@ -406,6 +460,65 @@ impl<S: FgpService + 'static> FgpServer<S> {
             serde_json::json!({"methods": methods}),
             start.elapsed().as_secs_f64() * 1000.0,
         )
+    }
+
+    /// Handle the `schema` built-in method (static version).
+    ///
+    /// Returns JSON Schema for methods with optional format conversion.
+    ///
+    /// # Parameters
+    /// * `format` - Output format: "json-schema" (default), "openai", "anthropic", "mcp"
+    /// * `methods` - Optional array of method names to filter
+    fn handle_schema_static(
+        id: &str,
+        start: Instant,
+        service: &Arc<S>,
+        params: std::collections::HashMap<String, serde_json::Value>,
+    ) -> Response {
+        let format = params
+            .get("format")
+            .and_then(|v| v.as_str())
+            .unwrap_or("json-schema");
+
+        let method_filter: Option<Vec<String>> = params
+            .get("methods")
+            .and_then(|v| serde_json::from_value(v.clone()).ok());
+
+        // Get service methods (excluding built-ins for schema output)
+        let service_prefix = format!("{}.", service.name());
+        let methods: Vec<MethodInfo> = service
+            .method_list()
+            .into_iter()
+            .map(|mut m| {
+                if !m.name.contains('.') {
+                    m.name = format!("{}{}", service_prefix, m.name);
+                }
+                m
+            })
+            .filter(|m| {
+                method_filter
+                    .as_ref()
+                    .map(|filter| filter.contains(&m.name))
+                    .unwrap_or(true)
+            })
+            .collect();
+
+        let result = match format {
+            "openai" => schema::to_openai(&methods),
+            "anthropic" => schema::to_anthropic(&methods),
+            "mcp" => serde_json::to_value(schema::to_mcp(&methods)).unwrap_or_default(),
+            _ => {
+                // Default: json-schema format with full metadata
+                serde_json::json!({
+                    "service": service.name(),
+                    "version": service.version(),
+                    "protocol": "fgp@1",
+                    "methods": methods,
+                })
+            }
+        };
+
+        Response::success(id, result, start.elapsed().as_secs_f64() * 1000.0)
     }
 }
 

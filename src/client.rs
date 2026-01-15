@@ -181,14 +181,21 @@ impl FgpClient {
                     );
 
                     // Start the service
-                    crate::lifecycle::start_service(service_name)
-                        .with_context(|| format!("Failed to auto-start service '{}'", service_name))?;
+                    crate::lifecycle::start_service(service_name).with_context(|| {
+                        format!("Failed to auto-start service '{}'", service_name)
+                    })?;
 
                     // Retry connection
-                    UnixStream::connect(&self.socket_path)
-                        .with_context(|| format!("Cannot connect to daemon at {:?} after auto-start", self.socket_path))?
+                    UnixStream::connect(&self.socket_path).with_context(|| {
+                        format!(
+                            "Cannot connect to daemon at {:?} after auto-start",
+                            self.socket_path
+                        )
+                    })?
                 } else {
-                    return Err(e).with_context(|| format!("Cannot connect to daemon at {:?}", self.socket_path));
+                    return Err(e).with_context(|| {
+                        format!("Cannot connect to daemon at {:?}", self.socket_path)
+                    });
                 }
             }
         };
@@ -197,7 +204,11 @@ impl FgpClient {
     }
 
     /// Send request on an already-connected stream.
-    fn send_request_on_stream(&self, mut stream: UnixStream, request: &Request) -> Result<Response> {
+    fn send_request_on_stream(
+        &self,
+        mut stream: UnixStream,
+        request: &Request,
+    ) -> Result<Response> {
         stream.set_read_timeout(Some(self.timeout))?;
         stream.set_write_timeout(Some(self.timeout))?;
 
@@ -255,7 +266,11 @@ pub fn call(service_name: &str, method: &str, params: serde_json::Value) -> Resu
 /// let response = call_auto_start("gmail", "gmail.list", serde_json::json!({"limit": 5}))?;
 /// # Ok::<(), anyhow::Error>(())
 /// ```
-pub fn call_auto_start(service_name: &str, method: &str, params: serde_json::Value) -> Result<Response> {
+pub fn call_auto_start(
+    service_name: &str,
+    method: &str,
+    params: serde_json::Value,
+) -> Result<Response> {
     let client = FgpClient::for_service(service_name)?;
     client.call(method, params)
 }

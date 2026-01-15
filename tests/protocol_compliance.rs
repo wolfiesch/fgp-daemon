@@ -90,7 +90,10 @@ fn test_request_complex_params() {
     let request: Request = serde_json::from_str(json).unwrap();
 
     assert_eq!(request.method, "browser.fill");
-    assert_eq!(request.params.get("selector").unwrap(), &json!("input#search"));
+    assert_eq!(
+        request.params.get("selector").unwrap(),
+        &json!("input#search")
+    );
 
     let options = request.params.get("options").unwrap();
     assert_eq!(options["timeout"], 5000);
@@ -148,7 +151,10 @@ fn test_response_error() {
     assert_eq!(parsed["ok"], false);
     assert!(parsed["result"].is_null());
     assert_eq!(parsed["error"]["code"], "UNKNOWN_METHOD");
-    assert!(parsed["error"]["message"].as_str().unwrap().contains("foo.bar"));
+    assert!(parsed["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("foo.bar"));
 }
 
 #[test]
@@ -268,7 +274,10 @@ fn test_request_unicode_params() {
     let json = serde_json::to_string(&request).unwrap();
     let parsed: Request = serde_json::from_str(&json).unwrap();
 
-    assert_eq!(parsed.params.get("emoji").unwrap(), &json!("Hello 👋 World 🌍"));
+    assert_eq!(
+        parsed.params.get("emoji").unwrap(),
+        &json!("Hello 👋 World 🌍")
+    );
     assert_eq!(parsed.params.get("chinese").unwrap(), &json!("你好世界"));
 }
 

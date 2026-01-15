@@ -447,14 +447,30 @@ fn test_error_response_has_no_result() {
 
 #[test]
 fn test_error_codes_are_uppercase() {
-    assert!(error_codes::INVALID_REQUEST.chars().all(|c| c.is_uppercase() || c == '_'));
-    assert!(error_codes::UNKNOWN_METHOD.chars().all(|c| c.is_uppercase() || c == '_'));
-    assert!(error_codes::INVALID_PARAMS.chars().all(|c| c.is_uppercase() || c == '_'));
-    assert!(error_codes::INTERNAL_ERROR.chars().all(|c| c.is_uppercase() || c == '_'));
-    assert!(error_codes::NOT_FOUND.chars().all(|c| c.is_uppercase() || c == '_'));
-    assert!(error_codes::UNAUTHORIZED.chars().all(|c| c.is_uppercase() || c == '_'));
-    assert!(error_codes::TIMEOUT.chars().all(|c| c.is_uppercase() || c == '_'));
-    assert!(error_codes::SERVICE_UNAVAILABLE.chars().all(|c| c.is_uppercase() || c == '_'));
+    assert!(error_codes::INVALID_REQUEST
+        .chars()
+        .all(|c| c.is_uppercase() || c == '_'));
+    assert!(error_codes::UNKNOWN_METHOD
+        .chars()
+        .all(|c| c.is_uppercase() || c == '_'));
+    assert!(error_codes::INVALID_PARAMS
+        .chars()
+        .all(|c| c.is_uppercase() || c == '_'));
+    assert!(error_codes::INTERNAL_ERROR
+        .chars()
+        .all(|c| c.is_uppercase() || c == '_'));
+    assert!(error_codes::NOT_FOUND
+        .chars()
+        .all(|c| c.is_uppercase() || c == '_'));
+    assert!(error_codes::UNAUTHORIZED
+        .chars()
+        .all(|c| c.is_uppercase() || c == '_'));
+    assert!(error_codes::TIMEOUT
+        .chars()
+        .all(|c| c.is_uppercase() || c == '_'));
+    assert!(error_codes::SERVICE_UNAVAILABLE
+        .chars()
+        .all(|c| c.is_uppercase() || c == '_'));
 }
 
 #[test]

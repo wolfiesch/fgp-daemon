@@ -72,10 +72,7 @@ impl FgpService for TestService {
                 anyhow::bail!("Intentional error for testing");
             }
             "test.slow" | "slow" => {
-                let ms = params
-                    .get("ms")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(100);
+                let ms = params.get("ms").and_then(|v| v.as_u64()).unwrap_or(100);
                 thread::sleep(Duration::from_millis(ms));
                 Ok(json!({ "slept_ms": ms }))
             }
@@ -88,54 +85,35 @@ impl FgpService for TestService {
 
     fn method_list(&self) -> Vec<MethodInfo> {
         vec![
-            MethodInfo {
-                name: "test.echo".into(),
-                description: "Echo a message".into(),
-                params: vec![ParamInfo {
+            MethodInfo::new("test.echo", "Echo a message")
+                .param(ParamInfo {
                     name: "message".into(),
                     param_type: "string".into(),
                     required: false,
                     default: Some(json!("no message")),
-                }],
-            },
-            MethodInfo {
-                name: "test.add".into(),
-                description: "Add two numbers".into(),
-                params: vec![
-                    ParamInfo {
-                        name: "a".into(),
-                        param_type: "integer".into(),
-                        required: true,
-                        default: None,
-                    },
-                    ParamInfo {
-                        name: "b".into(),
-                        param_type: "integer".into(),
-                        required: true,
-                        default: None,
-                    },
-                ],
-            },
-            MethodInfo {
-                name: "test.error".into(),
-                description: "Always returns an error".into(),
-                params: vec![],
-            },
-            MethodInfo {
-                name: "test.slow".into(),
-                description: "Sleep for specified milliseconds".into(),
-                params: vec![ParamInfo {
+                }),
+            MethodInfo::new("test.add", "Add two numbers")
+                .param(ParamInfo {
+                    name: "a".into(),
+                    param_type: "integer".into(),
+                    required: true,
+                    default: None,
+                })
+                .param(ParamInfo {
+                    name: "b".into(),
+                    param_type: "integer".into(),
+                    required: true,
+                    default: None,
+                }),
+            MethodInfo::new("test.error", "Always returns an error"),
+            MethodInfo::new("test.slow", "Sleep for specified milliseconds")
+                .param(ParamInfo {
                     name: "ms".into(),
                     param_type: "integer".into(),
                     required: false,
                     default: Some(json!(100)),
-                }],
-            },
-            MethodInfo {
-                name: "test.count".into(),
-                description: "Return total call count".into(),
-                params: vec![],
-            },
+                }),
+            MethodInfo::new("test.count", "Return total call count"),
         ]
     }
 
@@ -651,7 +629,10 @@ fn test_large_message() {
     let response = send_request(&socket_path, &request).unwrap();
 
     assert!(response.ok);
-    assert_eq!(response.result.unwrap()["echo"].as_str().unwrap().len(), 100_000);
+    assert_eq!(
+        response.result.unwrap()["echo"].as_str().unwrap().len(),
+        100_000
+    );
 }
 
 #[test]

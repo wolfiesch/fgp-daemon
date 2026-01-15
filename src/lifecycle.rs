@@ -247,10 +247,10 @@ pub fn start_service_with_timeout(service_name: &str, timeout: Duration) -> Resu
     }
 
     // Read manifest to get entrypoint
-    let manifest_content = fs::read_to_string(&manifest_path)
-        .context("Failed to read manifest.json")?;
-    let manifest: serde_json::Value = serde_json::from_str(&manifest_content)
-        .context("Failed to parse manifest.json")?;
+    let manifest_content =
+        fs::read_to_string(&manifest_path).context("Failed to read manifest.json")?;
+    let manifest: serde_json::Value =
+        serde_json::from_str(&manifest_content).context("Failed to parse manifest.json")?;
 
     let entrypoint = manifest["daemon"]["entrypoint"]
         .as_str()
@@ -353,10 +353,10 @@ fn read_entrypoint_name(service_name: &str) -> Result<Option<String>> {
         return Ok(None);
     }
 
-    let manifest_content = fs::read_to_string(&manifest_path)
-        .context("Failed to read manifest.json")?;
-    let manifest: serde_json::Value = serde_json::from_str(&manifest_content)
-        .context("Failed to parse manifest.json")?;
+    let manifest_content =
+        fs::read_to_string(&manifest_path).context("Failed to read manifest.json")?;
+    let manifest: serde_json::Value =
+        serde_json::from_str(&manifest_content).context("Failed to parse manifest.json")?;
 
     let entrypoint = manifest["daemon"]["entrypoint"]
         .as_str()

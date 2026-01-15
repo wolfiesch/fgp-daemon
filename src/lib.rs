@@ -47,25 +47,27 @@
 //! {"id":"uuid","ok":true,"result":{},"error":null,"meta":{"server_ms":12}}
 //! ```
 
+pub mod client;
+pub mod lifecycle;
+pub mod logging;
 pub mod protocol;
+pub mod schema;
 pub mod server;
 pub mod service;
-pub mod lifecycle;
-pub mod client;
 
 #[cfg(feature = "python")]
 pub mod python;
 
 // Re-exports for convenience
-pub use protocol::{Request, Response, ErrorInfo, ResponseMeta};
+pub use client::FgpClient;
+pub use schema::{to_anthropic, to_mcp, to_openai, McpTool, SchemaBuilder};
+pub use lifecycle::{
+    cleanup_socket, daemonize, fgp_services_dir, is_service_running, service_pid_path,
+    service_socket_path, start_service, start_service_with_timeout, stop_service, write_pid_file,
+};
+pub use protocol::{ErrorInfo, Request, Response, ResponseMeta};
 pub use server::FgpServer;
 pub use service::FgpService;
-pub use client::FgpClient;
-pub use lifecycle::{
-    daemonize, write_pid_file, cleanup_socket,
-    start_service, start_service_with_timeout, stop_service, is_service_running,
-    fgp_services_dir, service_socket_path, service_pid_path
-};
 
 #[cfg(feature = "python")]
 pub use python::PythonModule;

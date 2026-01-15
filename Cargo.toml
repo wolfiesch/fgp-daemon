@@ -22,6 +22,8 @@ thiserror = "2"
 
 # Logging
 tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = { version = "0.2", optional = true }
 chrono = "0.4"
 
 # Async (optional, for client)
@@ -42,6 +44,7 @@ pyo3 = { version = "0.24.1", features = ["auto-initialize"], optional = true }
 default = []
 async-client = ["tokio"]
 python = ["pyo3"]
+log-rotation = ["tracing-appender"]
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

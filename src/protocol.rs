@@ -125,7 +125,12 @@ impl Response {
     }
 
     /// Create an error response.
-    pub fn error(id: impl Into<String>, code: &str, message: impl Into<String>, server_ms: f64) -> Self {
+    pub fn error(
+        id: impl Into<String>,
+        code: &str,
+        message: impl Into<String>,
+        server_ms: f64,
+    ) -> Self {
         Self {
             id: id.into(),
             ok: false,

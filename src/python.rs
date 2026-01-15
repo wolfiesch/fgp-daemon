@@ -46,7 +46,7 @@
 //! server.serve()?;
 //! ```
 
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyTuple};
 use serde_json::Value;
@@ -91,7 +91,8 @@ impl PythonModule {
             // Add module directory to Python path
             let sys = py.import("sys")?;
             let path_attr = sys.getattr("path")?;
-            let path: &Bound<'_, PyList> = path_attr.downcast()
+            let path: &Bound<'_, PyList> = path_attr
+                .downcast()
                 .map_err(|e| anyhow::anyhow!("sys.path is not a list: {}", e))?;
 
             if let Some(parent) = module_path.parent() {
@@ -105,15 +106,18 @@ impl PythonModule {
                 .ok_or_else(|| anyhow::anyhow!("Invalid module path"))?;
 
             // Import the module
-            let module = py.import(module_name)
+            let module = py
+                .import(module_name)
                 .with_context(|| format!("Failed to import Python module: {}", module_name))?;
 
             // Get the class
-            let class = module.getattr(class_name)
+            let class = module
+                .getattr(class_name)
                 .with_context(|| format!("Failed to find class '{}' in module", class_name))?;
 
             // Instantiate the class
-            let instance = class.call0()
+            let instance = class
+                .call0()
                 .with_context(|| format!("Failed to instantiate '{}'", class_name))?;
 
             // Get name and version
@@ -150,7 +154,10 @@ impl PythonModule {
         let init_path = package_dir.join("__init__.py");
 
         if !init_path.exists() {
-            bail!("Package directory must contain __init__.py: {}", package_dir.display());
+            bail!(
+                "Package directory must contain __init__.py: {}",
+                package_dir.display()
+            );
         }
 
         // Default class name is "Module"
@@ -201,7 +208,8 @@ impl FgpService for PythonModule {
                 Ok(result) => {
                     // Parse list of method info dicts
                     match result.downcast::<PyList>() {
-                        Ok(list) => list.iter()
+                        Ok(list) => list
+                            .iter()
                             .filter_map(|item| parse_method_info(&item).ok())
                             .collect(),
                         Err(_) => vec![],
@@ -248,12 +256,10 @@ impl FgpService for PythonModule {
             }
 
             match instance.call_method0("health_check") {
-                Ok(result) => {
-                    match result.downcast::<PyDict>() {
-                        Ok(dict) => parse_health_status_map(dict),
-                        Err(_) => HashMap::new(),
-                    }
-                }
+                Ok(result) => match result.downcast::<PyDict>() {
+                    Ok(dict) => parse_health_status_map(dict),
+                    Err(_) => HashMap::new(),
+                },
                 Err(e) => {
                     warn!(error = %e, "Failed to call health_check");
                     let mut map = HashMap::new();
@@ -353,16 +359,15 @@ fn py_to_json(obj: Bound<'_, PyAny>) -> Result<Value> {
 
     // Try to convert using Python's json module as fallback
     let json_module = py.import("json")?;
-    let json_str: String = json_module
-        .call_method1("dumps", (&obj,))?
-        .extract()?;
+    let json_str: String = json_module.call_method1("dumps", (&obj,))?.extract()?;
     let value: Value = serde_json::from_str(&json_str)?;
     Ok(value)
 }
 
 /// Parse a Python dict into MethodInfo.
 fn parse_method_info(obj: &Bound<'_, PyAny>) -> Result<MethodInfo> {
-    let dict = obj.downcast::<PyDict>()
+    let dict = obj
+        .downcast::<PyDict>()
         .map_err(|e| anyhow::anyhow!("Expected dict for method info: {}", e))?;
 
     let name: String = dict
@@ -377,7 +382,8 @@ fn parse_method_info(obj: &Bound<'_, PyAny>) -> Result<MethodInfo> {
 
     let params = if let Some(params_list) = dict.get_item("params")? {
         match params_list.downcast::<PyList>() {
-            Ok(list) => list.iter()
+            Ok(list) => list
+                .iter()
                 .filter_map(|p| parse_param_info(&p).ok())
                 .collect(),
             Err(_) => vec![],
@@ -395,7 +401,8 @@ fn parse_method_info(obj: &Bound<'_, PyAny>) -> Result<MethodInfo> {
 
 /// Parse a Python dict into ParamInfo.
 fn parse_param_info(obj: &Bound<'_, PyAny>) -> Result<ParamInfo> {
-    let dict = obj.downcast::<PyDict>()
+    let dict = obj
+        .downcast::<PyDict>()
         .map_err(|e| anyhow::anyhow!("Expected dict for param info: {}", e))?;
 
     let name: String = dict
@@ -413,9 +420,7 @@ fn parse_param_info(obj: &Bound<'_, PyAny>) -> Result<ParamInfo> {
         .map(|r| r.extract().unwrap_or(false))
         .unwrap_or(false);
 
-    let default = dict
-        .get_item("default")?
-        .and_then(|d| py_to_json(d).ok());
+    let default = dict.get_item("default")?.and_then(|d| py_to_json(d).ok());
 
     Ok(ParamInfo {
         name,
@@ -451,7 +456,14 @@ fn parse_health_status_map(dict: &Bound<'_, PyDict>) -> HashMap<String, HealthSt
                     .flatten()
                     .and_then(|m| m.extract().ok());
 
-                map.insert(key_str, HealthStatus { ok, latency_ms, message });
+                map.insert(
+                    key_str,
+                    HealthStatus {
+                        ok,
+                        latency_ms,
+                        message,
+                    },
+                );
             }
         }
     }

@@ -13,8 +13,8 @@
 //! ```
 
 use anyhow::Result;
-use fgp_daemon::{FgpServer, FgpService};
 use fgp_daemon::service::{MethodInfo, ParamInfo};
+use fgp_daemon::{FgpServer, FgpService};
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -42,9 +42,7 @@ impl FgpService for EchoService {
                         .as_secs()
                 }))
             }
-            "echo.ping" => {
-                Ok(serde_json::json!({"pong": true}))
-            }
+            "echo.ping" => Ok(serde_json::json!({"pong": true})),
             "echo.error" => {
                 // Intentionally return an error for testing
                 anyhow::bail!("Intentional error for testing")
@@ -57,28 +55,15 @@ impl FgpService for EchoService {
 
     fn method_list(&self) -> Vec<MethodInfo> {
         vec![
-            MethodInfo {
-                name: "echo.echo".into(),
-                description: "Echo back the provided parameters".into(),
-                params: vec![
-                    ParamInfo {
-                        name: "message".into(),
-                        param_type: "string".into(),
-                        required: false,
-                        default: None,
-                    },
-                ],
-            },
-            MethodInfo {
-                name: "echo.ping".into(),
-                description: "Simple ping/pong health check".into(),
-                params: vec![],
-            },
-            MethodInfo {
-                name: "echo.error".into(),
-                description: "Returns an error (for testing error handling)".into(),
-                params: vec![],
-            },
+            MethodInfo::new("echo.echo", "Echo back the provided parameters")
+                .param(ParamInfo {
+                    name: "message".into(),
+                    param_type: "string".into(),
+                    required: false,
+                    default: None,
+                }),
+            MethodInfo::new("echo.ping", "Simple ping/pong health check"),
+            MethodInfo::new("echo.error", "Returns an error (for testing error handling)"),
         ]
     }
 
