@@ -261,6 +261,7 @@ pub struct McpInputSchema {
 /// - Method names: dots replaced with underscores (`gmail.send` → `gmail_send`)
 /// - Description: truncated to 1024 characters
 /// - Schema: inlines all `$ref` references
+/// - Adds `additionalProperties: false` for stricter validation
 ///
 /// # Example output
 /// ```json
@@ -269,7 +270,7 @@ pub struct McpInputSchema {
 ///     {
 ///       "name": "gmail_send",
 ///       "description": "Send an email",
-///       "parameters": { "type": "object", "properties": {...} }
+///       "parameters": { "type": "object", "properties": {...}, "additionalProperties": false }
 ///     }
 ///   ]
 /// }
@@ -281,7 +282,12 @@ pub fn to_openai(methods: &[MethodInfo]) -> Value {
             let name = method.name.replace('.', "_");
             let description = truncate(&method.description, 1024);
             let parameters = get_schema_or_synthesize(method);
-            let parameters = inline_refs(parameters);
+            let mut parameters = inline_refs(parameters);
+
+            // Add additionalProperties: false for stricter OpenAI validation
+            if let Some(obj) = parameters.as_object_mut() {
+                obj.insert("additionalProperties".to_string(), json!(false));
+            }
 
             json!({
                 "name": name,
@@ -299,6 +305,7 @@ pub fn to_openai(methods: &[MethodInfo]) -> Value {
 /// # Conversion rules
 /// - Method names: kept as-is (dots allowed)
 /// - Schema: preserved with full JSON Schema support
+/// - Includes `cache_control` hint for prompt caching
 ///
 /// # Example output
 /// ```json
@@ -307,7 +314,8 @@ pub fn to_openai(methods: &[MethodInfo]) -> Value {
 ///     {
 ///       "name": "gmail.send",
 ///       "description": "Send an email",
-///       "input_schema": { "type": "object", "properties": {...} }
+///       "input_schema": { "type": "object", "properties": {...} },
+///       "cache_control": { "type": "ephemeral" }
 ///     }
 ///   ]
 /// }
@@ -321,7 +329,8 @@ pub fn to_anthropic(methods: &[MethodInfo]) -> Value {
             json!({
                 "name": method.name,
                 "description": method.description,
-                "input_schema": schema
+                "input_schema": schema,
+                "cache_control": { "type": "ephemeral" }
             })
         })
         .collect();
@@ -581,6 +590,11 @@ mod tests {
 
         let result = to_openai(&[method]);
         assert_eq!(result["functions"][0]["name"], "gmail_send");
+        // Check additionalProperties: false for stricter validation
+        assert_eq!(
+            result["functions"][0]["parameters"]["additionalProperties"],
+            false
+        );
     }
 
     #[test]
@@ -598,6 +612,8 @@ mod tests {
 
         let result = to_anthropic(&[method]);
         assert_eq!(result["tools"][0]["name"], "gmail.send");
+        // Check cache_control is present for prompt caching optimization
+        assert_eq!(result["tools"][0]["cache_control"]["type"], "ephemeral");
     }
 
     #[test]
